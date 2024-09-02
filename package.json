@@ -1,0 +1,17 @@
+{
+  "name": "ai-pr-reviewer",
+  "version": "1.0.0",
+  "description": "AI Pull Request Reviewer with GitHub Actions",
+  "main": "index.js",
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "bin": {
+    "ai-pr-reviewer": "./install.js"
+  },
+  "keywords": [],
+  "author": "librispark",
+  "dependencies": {
+    "fs-extra": "^10.0.0"
+  }
+}
