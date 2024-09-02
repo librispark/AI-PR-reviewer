@@ -97,7 +97,7 @@ Once installed, the GitHub Actions will automatically trigger when:
 
 ## Customization
 
-You can customize the AI behavior by modifying the Python scripts in `.github/scripts/`:
+You can customize the AI behavior by modifying the Python scripts:
 
 - **`ai_code_review.py`**: Handles the AI-driven code review when a pull request is opened.
 - **`respond_to_comment.py`**: Handles the AI response when a comment includes `@pr-ai`.
