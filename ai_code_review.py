@@ -2,26 +2,38 @@ import os
 import requests
 from github import Github
 import json
+from openai_helper import get_openai_response
 
-def get_openai_response(prompt):
-    api_key = os.getenv('OPENAI_API_KEY')
-    headers = {
-        'Authorization': f'Bearer {api_key}',
-        'Content-Type': 'application/json',
-    }
-    data = {
-        'model': 'gpt-4',
-        'messages': [{'role': 'user', 'content': prompt}],
-        'temperature': 0.5,
-    }
-    response = requests.post('https://api.openai.com/v1/chat/completions', headers=headers, json=data)
+def post_inline_comment(repo, pr, file, line, comment):
+    pr.create_review_comment(body=comment, commit_id=pr.head.sha, path=file, position=line)
 
-    if response.status_code != 200:
-        raise Exception(f"OpenAI API returned an error: {response.status_code} - {response.text}")
+def group_code_blocks(patch, context_lines=0):
+    """Groups consecutive added/modified lines into blocks and includes context lines above and below."""
+    lines = patch.splitlines()
+    code_blocks = []
+    current_block = []
     
-    response_data = response.json()
-    
-    return response_data
+    for i, line in enumerate(lines):
+        if line.startswith('+'):
+            current_block.append((i + 1, line))  # Store line number and content
+        elif current_block:
+            # If we hit a non-added line and there's an active block, finalize it
+            start_line = max(0, current_block[0][0] - context_lines - 1)
+            end_line = min(len(lines) - 1, current_block[-1][0] + context_lines - 1)
+            
+            # Capture the lines for the block including context
+            block_with_context = lines[start_line:end_line + 1]
+            code_blocks.append((start_line, block_with_context))
+            current_block = []
+
+    # If there's any remaining block, append it
+    if current_block:
+        start_line = max(0, current_block[0][0] - context_lines - 1)
+        end_line = min(len(lines) - 1, current_block[-1][0] + context_lines - 1)
+        block_with_context = lines[start_line:end_line + 1]
+        code_blocks.append((start_line, block_with_context))
+
+    return code_blocks
 
 def main():
     # Set up GitHub API client
@@ -40,29 +52,69 @@ def main():
 
     # Get the changed files
     files = pr.get_files()
-    changes = ""
-    for file in files:
-        if file.status in ['added', 'modified']:
-            changes += f"File: {file.filename}\n{file.patch}\n\n"
 
-    # Prepare the prompt
-    prompt = f"Review the following code changes for quality and provide feedback:\n{changes}"
+    # Optionally add inline comments, makes multiple api calls
+    add_inline_comments = os.getenv('ADD_INLINE_COMMENTS', 'false').lower() == 'true'
 
-    # Get the response from the LLM
-    response = get_openai_response(prompt)
+    # Get the number of context lines to include (default is 0)
+    context_lines = int(os.getenv('CONTEXT_LINES', 0))
 
-    # Check if 'choices' is in the response and handle the error
-    if 'choices' in response and len(response['choices']) > 0:
-        feedback = response['choices'][0]['message']['content']
-        
-        # Only post a comment if there's feedback beyond a generic response
-        if "looks good" not in feedback.lower() and feedback.strip():
-            pr.create_issue_comment(feedback)
+    # if ADD_INLINE_COMMENTS=true then add inline review comments for each api call
+    if add_inline_comments:
+        for file in files:
+            if file.status in ['added', 'modified']:
+                # Group consecutive added/modified lines into code blocks, with context
+                code_blocks = group_code_blocks(file.patch, context_lines)
+
+                for block_start_line, block_with_context in code_blocks:
+                    # Prepare the prompt for each code block with context
+                    block_lines = "\n".join(block_with_context)
+                    prompt = f"Review this code change in file {file.filename} with the following context:\n{block_lines}\n\nIf no issues add #looksgood."
+
+                    # Get the response from OpenAI for this block
+                    response = get_openai_response(prompt)
+
+                    # Check if 'choices' exists in the response
+                    if 'choices' in response and len(response['choices']) > 0:
+                        feedback = response['choices'][0]['message']['content']
+                        # Only post a comment if there's feedback beyond a looksgood response
+                        if "#looksgood" not in feedback.lower() and feedback.strip():
+                            # Post the feedback as an inline comment on the first line of the block
+                            post_inline_comment(repo, pr, file.filename, block_start_line + 1, feedback)
+                        else:
+                            print("No significant issues found, no comment added.")
+                    else:
+                        print(f"No valid response for block starting at line {block_start_line + 1} in {file.filename}")
+
+    # Optionally add whole PR review comment, makes single API call, more likely to hit input/output token limits depending on PR size
+    add_whole_pr_comment = os.getenv('ADD_WHOLE_PR_COMMENT', 'true').lower() == 'true'
+
+    if add_whole_pr_comment:
+        # Default behavior: Single OpenAI call for all changes
+        changes = ""
+        for file in files:
+            if file.status in ['added', 'modified']:
+                changes += f"File: {file.filename}\n{file.patch}\n\n"
+
+        # Prepare the prompt
+        prompt = f"Review the following code changes for quality and provide feedback:\n{changes}\n\nIf no issues add #looksgood."
+
+        # Get the response from the LLM
+        response = get_openai_response(prompt)
+
+        # Check if 'choices' is in the response and handle the error
+        if 'choices' in response and len(response['choices']) > 0:
+            feedback = response['choices'][0]['message']['content']
+            # Only post a comment if there's feedback beyond a looksgood response
+            if "#looksgood" not in feedback.lower() and feedback.strip():
+                pr.create_issue_comment(feedback)
+            else:
+                print("No significant issues found, no comment added.")
         else:
-            print("No significant issues found, no comment added.")
-    else:
-        print("Error: No 'choices' found in the OpenAI API response.")
-        print("Full response:", response)
+            print("No 'choices' found in the OpenAI API response.")
+
+    if add_whole_pr_comment == 'false' and add_inline_comments == 'false':
+        print("Inline and whole PR comments are disabled.")
 
 if __name__ == "__main__":
     main()

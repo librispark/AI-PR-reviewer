@@ -7,12 +7,14 @@ const path = require('path');
 const workflowFileSrc = path.join(__dirname, 'ai_code_review.yml');
 const scriptFile1Src = path.join(__dirname, 'ai_code_review.py');
 const scriptFile2Src = path.join(__dirname, 'respond_to_comment.py');
+const scriptFile3Src = path.join(__dirname, 'openai_helper.py');
 const reqsFileSrc = path.join(__dirname, 'requirements.txt');
 
 // Define destination paths
 const workflowFileDest = path.join(process.cwd(), '.github', 'workflows', 'ai_code_review.yml');
 const scriptFile1Dest = path.join(process.cwd(), '.github', 'scripts', 'ai_code_review.py');
 const scriptFile2Dest = path.join(process.cwd(), '.github', 'scripts', 'respond_to_comment.py');
+const scriptFile3Dest = path.join(process.cwd(), '.github', 'scripts', 'openai_helper.py');
 const reqsFileDest = path.join(process.cwd(), '.github', 'scripts', 'requirements.txt');
 
 // Function to ensure directory exists
@@ -35,6 +37,7 @@ copyFile(workflowFileSrc, workflowFileDest);
 // Copy the script files
 copyFile(scriptFile1Src, scriptFile1Dest);
 copyFile(scriptFile2Src, scriptFile2Dest);
+copyFile(scriptFile3Src, scriptFile3Dest);
 copyFile(reqsFileSrc, reqsFileDest);
 
 console.log('AI Code Review and Comment Responder files have been installed successfully.');
