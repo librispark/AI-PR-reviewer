@@ -56,7 +56,7 @@ def main():
     # Optionally add inline comments, makes multiple api calls
     add_inline_comments = os.getenv('ADD_INLINE_COMMENTS', 'false').lower() == 'true'
 
-    # Get the number of context lines to include (default is 0)
+    # Get the number of context lines to include above and below code block if add_inline_comments enabled (default is 0)
     context_lines = int(os.getenv('CONTEXT_LINES', 0))
 
     # if ADD_INLINE_COMMENTS=true then add inline review comments for each api call
