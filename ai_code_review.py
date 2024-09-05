@@ -86,7 +86,7 @@ def main():
                         print(f"No valid response for block starting at line {block_start_line + 1} in {file.filename}")
 
     # Add whole PR review comment, makes single API call, more likely to hit input/output token limits depending on PR size
-    add_whole_pr_comment = os.getenv('ADD_WHOLE_PR_COMMENT', 'true').lower() == 'true'
+    add_whole_pr_comment = os.getenv('ADD_WHOLE_PR_COMMENT', 'false').lower() == 'true'
 
     if add_whole_pr_comment:
         # Default behavior: Single API call for all changes
