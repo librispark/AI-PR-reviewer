@@ -53,13 +53,12 @@ def main():
     # Get the changed files
     files = pr.get_files()
 
-    # Optionally add inline comments, makes multiple api calls
+    # Optionally add inline comments on blocks of code, makes multiple API calls, could hit token limits on very code blocks being reviewed
     add_inline_comments = os.getenv('ADD_INLINE_COMMENTS', 'false').lower() == 'true'
 
     # Get the number of context lines to include above and below code block if add_inline_comments enabled (default is 0)
     context_lines = int(os.getenv('CONTEXT_LINES', 0))
 
-    # if ADD_INLINE_COMMENTS=true then add inline review comments for each api call
     if add_inline_comments:
         for file in files:
             if file.status in ['added', 'modified']:
@@ -86,11 +85,11 @@ def main():
                     else:
                         print(f"No valid response for block starting at line {block_start_line + 1} in {file.filename}")
 
-    # Optionally add whole PR review comment, makes single API call, more likely to hit input/output token limits depending on PR size
+    # Add whole PR review comment, makes single API call, more likely to hit input/output token limits depending on PR size
     add_whole_pr_comment = os.getenv('ADD_WHOLE_PR_COMMENT', 'true').lower() == 'true'
 
     if add_whole_pr_comment:
-        # Default behavior: Single OpenAI call for all changes
+        # Default behavior: Single API call for all changes
         changes = ""
         for file in files:
             if file.status in ['added', 'modified']:
