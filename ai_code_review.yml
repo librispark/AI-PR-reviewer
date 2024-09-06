@@ -28,6 +28,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ADD_INLINE_COMMENTS: ${{ vars.ADD_INLINE_COMMENTS }}
+          CONTEXT_LINES: ${{ vars.CONTEXT_LINES }}
+          ADD_WHOLE_PR_COMMENT: ${{ vars.ADD_WHOLE_PR_COMMENT }}
         run: python .github/scripts/ai_code_review.py
 
   ai_comment_responder:
