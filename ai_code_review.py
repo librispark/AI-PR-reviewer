@@ -57,7 +57,7 @@ def main():
     add_inline_comments = os.getenv('ADD_INLINE_COMMENTS', 'false').lower() == 'true'
 
     # Get the number of context lines to include above and below code block if add_inline_comments enabled (default is 0)
-    context_lines = int(os.getenv('CONTEXT_LINES', '0'))
+    context_lines = int(os.getenv('CONTEXT_LINES', 0) or 0)
 
     if add_inline_comments:
         for file in files:
