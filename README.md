@@ -95,6 +95,11 @@ To use this GitHub Action, you need to configure the following environment varia
 - **Possible Values**:
   - `true`: The AI will review each code change individually and provide inline feedback for each modification.
   - `false`: The AI will skip the inline comments.
+- **Setup**: You need to add it to your repository variables:
+  1. Go to your GitHub repository.
+  2. Navigate to `Settings` > `Secrets` > `Actions`.
+  3. Click `New repository variable`.
+  4. Name the secret `ADD_INLINE_COMMENTS` and paste `true` or `false` into the value field.
 
 ### `ADD_WHOLE_PR_COMMENT`
 
@@ -103,6 +108,7 @@ To use this GitHub Action, you need to configure the following environment varia
 - **Possible Values**:
   - `true`: The AI will post a summary comment for the whole pull request.
   - `false`: The AI will skip the summary comment.
+- **Setup**: You need to add it to your repository variables (same as above).
 
 ## Usage
 
