@@ -6,6 +6,7 @@ from openai_helper import get_openai_response
 
 def post_inline_comment(repo, pr, file, line, comment):
     """Post an inline comment on a specific line of a pull request."""
+    print(repo, pr, file, line, comment)
     commit_sha = pr.head.sha
     commit = repo.get_commit(sha=commit_sha)
     pr.create_review_comment(
@@ -21,24 +22,27 @@ def group_code_blocks(patch, context_lines=0):
     lines = patch.splitlines()
     code_blocks = []
     current_block = []
+    line_number = 0  # Initialize line number tracker
     
     for i, line in enumerate(lines):
-        if line.startswith('+'):
-            current_block.append((i + 1, line))  # Store line number and content
+        if line.startswith('+') or line.startswith('-'):
+            current_block.append((line_number, line))  # Store line number and line content
         elif current_block:
             # If we hit a non-added line and there's an active block, finalize it
-            start_line = max(0, current_block[0][0] - context_lines - 1)
-            end_line = min(len(lines) - 1, current_block[-1][0] + context_lines - 1)
+            start_line = max(0, current_block[0][0] - context_lines)
+            end_line = min(len(lines) - 1, current_block[-1][0] + context_lines)
             
             # Capture the lines for the block including context
             block_with_context = lines[start_line:end_line + 1]
             code_blocks.append((start_line, block_with_context))
             current_block = []
+        
+        line_number += 1  # Increment line number for every line
 
     # If there's any remaining block, append it
     if current_block:
-        start_line = max(0, current_block[0][0] - context_lines - 1)
-        end_line = min(len(lines) - 1, current_block[-1][0] + context_lines - 1)
+        start_line = max(0, current_block[0][0] - context_lines)
+        end_line = min(len(lines) - 1, current_block[-1][0] + context_lines)
         block_with_context = lines[start_line:end_line + 1]
         code_blocks.append((start_line, block_with_context))
 
@@ -72,6 +76,8 @@ def main():
         for file in files:
             if file.status in ['added', 'modified']:
                 # Group consecutive added/modified lines into code blocks, with context
+                print('file.patch', file.patch)
+                print('context_lines', context_lines)
                 code_blocks = group_code_blocks(file.patch, context_lines)
 
                 for block_start_line, block_with_context in code_blocks:
