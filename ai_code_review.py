@@ -72,7 +72,7 @@ def main():
                 formatted_patch = format_patch_with_line_numbers(file.patch)
 
                 # Get the feedback from OpenAI
-                feedback_response = get_openai_feedback_with_line_numbers(f"Review the following code changes for quality and provide feedback with line numbers:\n{formatted_patch}\n\nIf no issues add #looksgood.")
+                feedback_response = get_openai_feedback_with_line_numbers(f"Review the following code changes for quality and provide feedback with line numbers, with context:\n{formatted_patch}\n\nIf no issues add #looksgood.")
 
                 # Parse the feedback into JSON
                 feedback_json = json.loads(feedback_response)
@@ -81,9 +81,12 @@ def main():
                 for feedback_entry in feedback_json['feedbacks']:
                     feedback = feedback_entry['feedback']
                     line_number = feedback_entry['lineToAddComment']
-
-                    # Post the feedback as an inline comment on the specific line number
-                    post_inline_comment(repo, pr, file.filename, line_number, feedback)
+                    # Only post a comment if there's feedback beyond a looksgood response
+                    if "#looksgood" not in feedback.lower() and feedback.strip():
+                        # Post the feedback as an inline comment on the specific line number
+                        post_inline_comment(repo, pr, file.filename, line_number, feedback)
+                    else:
+                        print("No significant issues found, no comment added.")
 
     # Add whole PR review comment, makes single API call, more likely to hit input/output token limits depending on PR size. Default: true
     add_whole_pr_comment = os.getenv('ADD_WHOLE_PR_COMMENT', 'true').lower() == 'true'

@@ -63,7 +63,7 @@ def get_openai_feedback_with_line_numbers(prompt):
     data = {
         'model': 'gpt-4-0613',  # Use model with function calling capability
         'messages': [
-            {'role': 'system', 'content': 'You are an AI code reviewer. Your task is to review code changes.'},
+            # {'role': 'system', 'content': 'You are an AI code reviewer. Your task is to review code changes.'},
             {'role': 'user', 'content': prompt} # f"Please review the following code changes and provide feedback with line numbers:\n{formatted_patch}"
         ],
         'functions': [function_schema],
