@@ -5,7 +5,16 @@ import json
 from openai_helper import get_openai_response
 
 def post_inline_comment(repo, pr, file, line, comment):
-    pr.create_review_comment(body=comment, commit_id=pr.head.sha, path=file, position=line)
+    """Post an inline comment on a specific line of a pull request."""
+    commit_sha = pr.head.sha
+    commit = repo.get_commit(sha=commit_sha)
+    pr.create_review_comment(
+        body=comment,        # The comment content
+        commit=commit,       # The latest commit object
+        path=file,           # The file path
+        line=line,           # The line number in the file
+        side="RIGHT"         # Optional: default to commenting on the "RIGHT" side in split view
+    )
 
 def group_code_blocks(patch, context_lines=0):
     """Groups consecutive added/modified lines into blocks and includes context lines above and below."""
