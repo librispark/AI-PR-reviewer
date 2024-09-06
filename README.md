@@ -88,6 +88,22 @@ To use this GitHub Action, you need to configure the following environment varia
   3. Click `New repository secret`.
   4. Name the secret `OPENAI_API_KEY` and paste your OpenAI API key into the value field.
 
+### `ADD_INLINE_COMMENTS`
+
+- **Description**: This variable controls whether the AI makes multiple API calls to review each individual code change in a pull request. When set to `true`, the AI will review each code block or line change separately and provide feedback by posting inline comments. If set to `false`, inline comments won't run (default).
+- **Default**: `false`
+- **Possible Values**:
+  - `true`: The AI will review each code change individually and provide inline feedback for each modification.
+  - `false`: The AI will skip the inline comments.
+
+### `ADD_WHOLE_PR_COMMENT`
+
+- **Description**: This variable controls whether the AI posts a summary comment for the entire pull request. When set to `true`, the AI will provide a general comment summarizing the feedback for the entire PR. When set to `false`, the summary comment will be skipped, and feedback will only be provided inline (if `ADD_INLINE_COMMENTS` is enabled).
+- **Default**: `true`
+- **Possible Values**:
+  - `true`: The AI will post a summary comment for the whole pull request.
+  - `false`: The AI will skip the summary comment.
+
 ## Usage
 
 Once installed, the GitHub Actions will automatically trigger when:
