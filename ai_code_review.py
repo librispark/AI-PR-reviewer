@@ -115,18 +115,4 @@ def main():
         print("Inline and whole PR comments are disabled.")
 
 if __name__ == "__main__":
-    # main()
-    changes = """
-@@ -22,7 +22,7 @@
-     "build-storybook": "node check.js && storybook build",
-     "sst:deploy": "sst deploy",
-     "sst:dev": "sst dev",
--    "sst:remove": "sst remove",
-(line: 25) +    "sst:dev2": "NODE_ENV=dev2 sst dev""sst:remove": "sst remove",
-     "seed": "tsx seeder/seed.ts"
-   },
-   "devDependencies": {
-    """
-    feedbacks = get_openai_feedback_with_line_numbers(f"Review this code changes in file package.json with the following code changes and provide feedback with line numbers:\n{changes}\n\nIf no issues include #looksgood.")
-    print(feedbacks)
-
+    main()
