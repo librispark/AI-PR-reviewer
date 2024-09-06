@@ -2,7 +2,7 @@ import os
 import requests
 from github import Github
 import json
-from openai_helper import get_openai_response
+from openai_helper import get_openai_response, get_openai_feedback_with_line_numbers
 
 def post_inline_comment(repo, pr, file, line, comment):
     """Post an inline comment on a specific line of a pull request."""
@@ -17,36 +17,31 @@ def post_inline_comment(repo, pr, file, line, comment):
         side="RIGHT"         # Optional: default to commenting on the "RIGHT" side in split view
     )
 
-def group_code_blocks(patch, context_lines=0):
-    """Groups consecutive added/modified lines into blocks and includes context lines above and below."""
+def format_patch_with_line_numbers(patch):
+    """Format the patch to add line numbers for modified lines."""
     lines = patch.splitlines()
-    code_blocks = []
-    current_block = []
-    line_number = 0  # Initialize line number tracker
-    
-    for i, line in enumerate(lines):
-        if line.startswith('+') or line.startswith('-'):
-            current_block.append((line_number, line))  # Store line number and line content
-        elif current_block:
-            # If we hit a non-added line and there's an active block, finalize it
-            start_line = max(0, current_block[0][0] - context_lines)
-            end_line = min(len(lines) - 1, current_block[-1][0] + context_lines)
-            
-            # Capture the lines for the block including context
-            block_with_context = lines[start_line:end_line + 1]
-            code_blocks.append((start_line, block_with_context))
-            current_block = []
-        
-        line_number += 1  # Increment line number for every line
+    formatted_patch = []
+    current_line_in_new_file = None
 
-    # If there's any remaining block, append it
-    if current_block:
-        start_line = max(0, current_block[0][0] - context_lines)
-        end_line = min(len(lines) - 1, current_block[-1][0] + context_lines)
-        block_with_context = lines[start_line:end_line + 1]
-        code_blocks.append((start_line, block_with_context))
+    for line in lines:
+        # Detect the start of a diff block, e.g., @@ -22,7 +22,7 @@
+        match = re.match(r'^@@ \-(\d+),\d+ \+(\d+),\d+ @@', line)
+        if match:
+            current_line_in_new_file = int(match.group(2))  # Get the starting line number in the new file
+            formatted_patch.append(line)  # Add the header line to the formatted patch
+            continue
 
-    return code_blocks
+        # If the line starts with a '+' but not '+++' (which is part of the diff header), it's an added line
+        if line.startswith('+') and not line.startswith('+++'):
+            formatted_patch.append(f"(line: {current_line_in_new_file}) {line}")  # Prepend the line number
+            current_line_in_new_file += 1  # Increment the line number for the next added line
+        elif not line.startswith('-'):  # If it's not a removed line, increment the line number
+            current_line_in_new_file += 1
+            formatted_patch.append(line)
+        else:
+            formatted_patch.append(line)  # Add removed lines as-is for context
+
+    return '\n'.join(formatted_patch)
 
 def main():
     # Set up GitHub API client
@@ -69,36 +64,25 @@ def main():
     # Optionally add inline comments on blocks of code, makes multiple API calls, could hit token limits on very code blocks being reviewed
     add_inline_comments = os.getenv('ADD_INLINE_COMMENTS', 'false').lower() == 'true'
 
-    # Get the number of context lines to include above and below code block if add_inline_comments enabled (default is 0)
-    context_lines = int(os.getenv('CONTEXT_LINES', 0) or 0)
-
     if add_inline_comments:
         for file in files:
             if file.status in ['added', 'modified']:
-                # Group consecutive added/modified lines into code blocks, with context
-                print('file.patch', file.patch)
-                print('context_lines', context_lines)
-                code_blocks = group_code_blocks(file.patch, context_lines)
+                # Format the patch to include line numbers
+                formatted_patch = format_patch_with_line_numbers(file.patch)
 
-                for block_start_line, block_with_context in code_blocks:
-                    # Prepare the prompt for each code block with context
-                    block_lines = "\n".join(block_with_context)
-                    prompt = f"Review this code change in file {file.filename} with the following context:\n{block_lines}\n\nIf no issues add #looksgood."
+                # Get the feedback from OpenAI
+                feedback_response = get_openai_feedback_with_line_numbers(formatted_patch)
 
-                    # Get the response from OpenAI for this block
-                    response = get_openai_response(prompt)
+                # Parse the feedback into JSON
+                feedback_json = json.loads(feedback_response)
 
-                    # Check if 'choices' exists in the response
-                    if 'choices' in response and len(response['choices']) > 0:
-                        feedback = response['choices'][0]['message']['content']
-                        # Only post a comment if there's feedback beyond a looksgood response
-                        if "#looksgood" not in feedback.lower() and feedback.strip():
-                            # Post the feedback as an inline comment on the first line of the block
-                            post_inline_comment(repo, pr, file.filename, block_start_line + 1, feedback)
-                        else:
-                            print("No significant issues found, no comment added.")
-                    else:
-                        print(f"No valid response for block starting at line {block_start_line + 1} in {file.filename}")
+                # Post the feedback as inline comments
+                for feedback_entry in feedback_json['feedbacks']:
+                    feedback = feedback_entry['feedback']
+                    line_number = feedback_entry['lineToAddComment']
+
+                    # Post the feedback as an inline comment on the specific line number
+                    post_inline_comment(repo, pr, file.filename, line_number, feedback)
 
     # Add whole PR review comment, makes single API call, more likely to hit input/output token limits depending on PR size
     add_whole_pr_comment = os.getenv('ADD_WHOLE_PR_COMMENT', 'false').lower() == 'true'
@@ -131,4 +115,18 @@ def main():
         print("Inline and whole PR comments are disabled.")
 
 if __name__ == "__main__":
-    main()
+    # main()
+    changes = """
+@@ -22,7 +22,7 @@
+     "build-storybook": "node check.js && storybook build",
+     "sst:deploy": "sst deploy",
+     "sst:dev": "sst dev",
+-    "sst:remove": "sst remove",
+(line: 25) +    "sst:dev2": "NODE_ENV=dev2 sst dev""sst:remove": "sst remove",
+     "seed": "tsx seeder/seed.ts"
+   },
+   "devDependencies": {
+    """
+    feedbacks = get_openai_feedback_with_line_numbers(f"Review this code changes in file package.json with the following code changes and provide feedback with line numbers:\n{changes}\n\nIf no issues include #looksgood.")
+    print(feedbacks)
+
